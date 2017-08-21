@@ -1,0 +1,89 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Blake"
+date: "August 20, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The goal of this project is to predict the manner in which they did the exercise. 
+
+###Loading and Cleaning the Data
+
+Here I take the weightlifting exercises training and testing data from the links provided in the course project assignment page. I also set any empty values or errors equal to NA.  Then I reduce the number of columns in both data sets to those which only contain nonzero values. 
+
+```{r}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile = "pml-training.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile = "pml-testing.csv")
+
+traindata <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!",""))
+testdata <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+
+traindata <- traindata[,(colSums(is.na(traindata)) == 0)]
+testdata <- testdata[,(colSums(is.na(testdata)) == 0)]
+```
+
+##Processing the Data
+
+After taking a look at the training and test data using the head() function, I noticed the first 7 columns are not material to the case of prediction, therefore I remove those.  
+
+```{r}
+traindata <- traindata[, -(1:7)]
+testdata <- testdata[, -(1:7)]
+```
+
+Next I evaluate those columns with a nonzero variance and exclude those from the data as well.
+
+```{r}
+library("caret")
+nzv <- nearZeroVar(traindata,saveMetrics=TRUE)
+traindata <- traindata[,nzv$nzv==FALSE]
+
+nzv <- nearZeroVar(testdata,saveMetrics=TRUE)
+testdata <- testdata[,nzv$nzv==FALSE]
+```
+
+##Validation Set
+
+Now I further split the traindata variable I have made for the training data into 70% for training and 30% for validation.
+
+```{r}
+inTrain <- createDataPartition(y=traindata$classe, p=0.7, list=FALSE)
+training <- traindata[inTrain, ]
+validation <- traindata[-inTrain, ]
+``````
+
+###Model Buiilding
+
+Here I decided to use the Random Forest Model on the training data set.  
+
+```{r}
+library(randomForest)
+modfit_rf <- train(classe ~., method="rf", data=training, trControl=trainControl(method='cv'), allowParallel=TRUE, importance=TRUE )
+modfit_rf
+````
+
+Analyzing the results the model, we see that our accuracy is ~99.24% from a 10-fold Cross Validation with 27 randomly selected predictors.  Next I test this model with the validation set I created a couple steps ago.
+
+```{r}
+pred <- predict(modfit_rf, validation)
+confusionMatrix(pred, validation$classe)
+``````
+
+In applying the Random Forests model developed in the previous step to our validation data, the model possesses an accuracy of 99.39%, slightly higher than the accuracy of the model on the training set, with an out of sample error of 0.61%.  
+
+## Model Prediction
+
+For the final step I use the model to predict the values of the testing set. 
+
+```{r}
+pred_test <- predict(modfit_rf, testdata)
+pred_test
+```
+
+In this case, all the predicted values were correct. 
